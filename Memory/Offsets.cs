@@ -35,33 +35,26 @@ namespace Kombatant.Memory
 		public readonly IntPtr TraderTradeStage;
 		public readonly IntPtr TargetManager;
 
-
-
-
-		Offsets()
+		private Offsets()
 		{
-			using (Core.Memory.AcquireFrame())
+			using (var patternFinder = new PatternFinder(Core.Memory))
 			{
-				InitializeValue(ref AgentMvpVTable, nameof(AgentMvpVTable), "48 8D 05 ? ? ? ? 48 89 03 33 C0 48 89 43 28 89 43 30 48 8B C3 48 83 C4 ? 5B C3 CC CC CC CC CC CC 40 53 Add 3 TraceRelative");
-				InitializeValue(ref AgentMvpVTable, nameof(AgentMvpVTable), "48 8D 05 ? ? ? ? 48 89 03 33 C0 48 89 43 ? 48 89 43 ? 48 8B C3 48 83 C4 ? 5B C3 ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? 40 53 Add 3 TraceRelative");
-				InitializeValue(ref AgentNotificationVTable, nameof(AgentNotificationVTable), "48 8D 05 ? ? ? ? 48 8B D9 48 89 01 E8 ? ? ? ? 48 8B CB E8 ? ? ? ? 48 8B CB 48 83 C4 ? 5B E9 ? ? ? ? CC CC CC CC Add 3 TraceRelative");
-				InitializeValue(ref LootFunc, nameof(LootFunc), "E8 ? ? ? ? EB 4A 48 8D 4F 10 Add 1 TraceRelative");
-				InitializeValue(ref LootsAddr, nameof(LootsAddr), "48 8D 0D ? ? ? ? E8 ? ? ? ? 89 44 24 60 Add 3 TraceRelative");
-				InitializeValue(ref TraderTradeStage, nameof(TraderTradeStage), "83 3D ? ? ? ? ? 7F ? Add 2 TraceRelative Add 5");
-				InitializeValue(ref TargetManager, nameof(TargetManager), "48 8B 05 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? FF 50 ?? 48 85 DB Add 3 TraceRelative");
-
-				AgentNotificationId = AgentModule.FindAgentIdByVtable(AgentNotificationVTable);
-				AgentMvpId = AgentModule.FindAgentIdByVtable(AgentMvpVTable);
+				InitializeValue(patternFinder, ref AgentMvpVTable, nameof(AgentMvpVTable), "Search 48 8D 05 ? ? ? ? 48 89 03 33 C0 48 89 43 ? 48 89 43 ? 48 8B C3 48 83 C4 ? 5B C3 ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? 40 53 Add 3 TraceRelative");
+				InitializeValue(patternFinder, ref AgentNotificationVTable, nameof(AgentNotificationVTable), "Search 48 8D 05 ? ? ? ? 48 8B D9 48 89 01 E8 ? ? ? ? 48 8B CB E8 ? ? ? ? 48 8B CB 48 83 C4 ? 5B E9 ? ? ? ? CC CC CC CC Add 3 TraceRelative");
+				InitializeValue(patternFinder, ref LootFunc, nameof(LootFunc), "Search E8 ? ? ? ? EB 4A 48 8D 4F 10 Add 1 TraceRelative");
+				InitializeValue(patternFinder, ref LootsAddr, nameof(LootsAddr), "Search 48 8D 0D ? ? ? ? E8 ? ? ? ? 89 44 24 60 Add 3 TraceRelative");
+				InitializeValue(patternFinder, ref TraderTradeStage, nameof(TraderTradeStage), "Search 83 3D ? ? ? ? ? 7F ? Add 2 TraceRelative Add 5");
+				InitializeValue(patternFinder, ref TargetManager, nameof(TargetManager), "Search 48 8B 05 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ?? FF 50 ?? 48 85 DB Add 3 TraceRelative");
 			}
+			AgentNotificationId = AgentModule.FindAgentIdByVtable(AgentNotificationVTable);
+			AgentMvpId = AgentModule.FindAgentIdByVtable(AgentMvpVTable);
 		}
 
-		private static void InitializeValue(ref IntPtr value, string name, string pattern, int offset = 0)
+		private static void InitializeValue(PatternFinder patternFinder, ref IntPtr value, string name, string pattern, int offset = 0)
 		{
-			PatternFinder patternFinder = new PatternFinder(Core.Memory);
-
 			try
 			{
-				value = patternFinder.Find(pattern) + offset;
+				value = patternFinder.FindSingle(pattern, true) + offset;
 				LogHelper.Instance.Log($"[Offset] Found {name} at {value.ToInt64():X}.");
 			}
 			catch (Exception e)
