@@ -47,7 +47,10 @@ namespace Kombatant.Logic
 			if (!BotBase.Instance.AutoTarget)
 				return await Task.FromResult(false);
 
-			if (Settings.BotBase.Instance.IsPaused || IsTraveling())
+			var partyInCombat = Core.Me.InCombat ||
+				PartyManager.VisibleMembers.Any(m => m.BattleCharacter.InCombat);
+
+			if (Settings.BotBase.Instance.IsPaused || (IsTraveling() && !partyInCombat))
 				return await Task.FromResult(false);
 
 			// Auto face target
@@ -325,7 +328,11 @@ namespace Kombatant.Logic
 						{
 							if (PartyManager.PartyId != 0)
 							{
-								result = result.Where(o => o.IsEnemy() && (GameObjectManager.Attackers.Contains(o) || o.TaggerObjectId == PartyManager.PartyId));
+								var partyObjectIds = new HashSet<uint>(PartyManager.VisibleMembers.Select(m => m.ObjectId));
+								result = result.Where(o => o.IsEnemy() && (
+									GameObjectManager.Attackers.Contains(o) ||
+									o.TaggerObjectId == PartyManager.PartyId ||
+									partyObjectIds.Contains(o.TargetGameObject?.ObjectId ?? 0)));
 							}
 							else
 							{

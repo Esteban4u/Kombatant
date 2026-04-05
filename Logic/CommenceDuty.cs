@@ -24,8 +24,6 @@ using Kombatant.Helpers;
 using Kombatant.Interfaces;
 using Kombatant.Managers;
 using Kombatant.Settings;
-using TreeSharp;
-using Action = TreeSharp.Action;
 
 namespace Kombatant.Logic
 {
@@ -69,7 +67,8 @@ namespace Kombatant.Logic
 			{
 				if (ShouldVoteMvp())
 				{
-					if (await VoteMvp().ExecuteCoroutine())
+					_mvpVoteStarted = true;
+					if (await VoteMvpAsync())
 						return await Task.FromResult(true);
 				}
 
@@ -245,12 +244,23 @@ namespace Kombatant.Logic
 				new SoundPlayer(_audioFiles.ElementAt(_random.Next(_audioFiles.Count()))).Play();
 		}
 
+		private bool _mvpVoteStarted;
+
 		bool ShouldVoteMvp()
 		{
 			if (!BotBase.Instance.AutoVoteMvp) return false;
+
+			// Reset the flag when not in an ended instance so the next dungeon can vote
+			if (!(DirectorManager.ActiveDirector is InstanceContentDirector icDirector && icDirector.InstanceEnded))
+			{
+				_mvpVoteStarted = false;
+				return false;
+			}
+
+			if (_mvpVoteStarted) return false;
 			if (PartyManager.NumMembers == 1) return false;
-			if (Memory.Offsets.Instance.AgentMvpId == 0 || Memory.Offsets.Instance.AgentNotificationId == 0) return false;
-			return DirectorManager.ActiveDirector is InstanceContentDirector icDirector && icDirector.InstanceEnded;
+			if (Memory.Offsets.Instance.AgentMvpId <= 0) return false;
+			return true;
 		}
 
 		private uint VoteWho
@@ -279,24 +289,35 @@ namespace Kombatant.Logic
 			}
 		}
 
-		private Composite VoteMvp()
+		private async Task<bool> VoteMvpAsync()
 		{
-			Composite c = new Sequence(
-				new ActionRunCoroutine(o => Coroutine.Wait(500, () => RaptureAtkUnitManager.GetWindowByName("_NotificationIcMvp") != null)),
-				new Action(context =>
-				{
-					AgentModule.ToggleAgentInterfaceById(Memory.Offsets.Instance.AgentNotificationId);
-					AgentModule.ToggleAgentInterfaceById(Memory.Offsets.Instance.AgentMvpId);
-				}),
-				new ActionRunCoroutine(o => Coroutine.Wait(3000, () => RaptureAtkUnitManager.GetWindowByName("VoteMvp") != null)),
-				new Action(context => LogHelper.Instance.Log("VoteMvp opened.")),
-				new Action(context =>
-				{
-					RaptureAtkUnitManager.GetWindowByName("VoteMvp").SendAction(2, 3, 0, 3, VoteWho);
-					LogHelper.Instance.Log($"Voted player [{VoteWho + 1}]!");
-				}));
+			if (!await Coroutine.Wait(5000, () => RaptureAtkUnitManager.GetWindowByName("_NotificationIcMvp") != null))
+			{
+				LogHelper.Instance.Log("VoteMvp: Notification window did not appear, skipping vote.");
+				return false;
+			}
 
-			return c;
+			if (Memory.Offsets.Instance.AgentNotificationId > 0)
+				AgentModule.ToggleAgentInterfaceById(Memory.Offsets.Instance.AgentNotificationId);
+			AgentModule.ToggleAgentInterfaceById(Memory.Offsets.Instance.AgentMvpId);
+
+			if (!await Coroutine.Wait(3000, () => RaptureAtkUnitManager.GetWindowByName("VoteMvp") != null))
+			{
+				LogHelper.Instance.Log("VoteMvp: Vote window did not open, skipping vote.");
+				return false;
+			}
+
+			LogHelper.Instance.Log("VoteMvp opened.");
+			var voteMvpWindow = RaptureAtkUnitManager.GetWindowByName("VoteMvp");
+			if (voteMvpWindow == null)
+			{
+				LogHelper.Instance.Log("VoteMvp: Window disappeared before vote could be cast.");
+				return false;
+			}
+
+			voteMvpWindow.SendAction(2, 3, 0, 3, VoteWho);
+			LogHelper.Instance.Log($"Voted player [{VoteWho + 1}]!");
+			return true;
 		}
 	}
 }

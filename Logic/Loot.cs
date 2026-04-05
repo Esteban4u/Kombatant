@@ -45,7 +45,7 @@ namespace Kombatant.Logic
 			switch (BotBase.Instance.LootMode)
 			{
 				case LootMode.NeedAndGreed:
-					var need = LootManager.AvailableLoots.FirstOrDefault(i => !i.Rolled && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
+					var need = LootManager.AvailableLoots.FirstOrDefault(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
 					if (need.Valid)
 					{
 						if (need.RollState == RollState.UpToNeed) need.Need();
@@ -55,7 +55,7 @@ namespace Kombatant.Logic
 					break;
 
 				case LootMode.GreedAll:
-					var greed = LootManager.AvailableLoots.FirstOrDefault(i => !i.Rolled && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
+					var greed = LootManager.AvailableLoots.FirstOrDefault(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
 					if (greed.Valid)
 					{
 						if (greed.RollState == RollState.UpToNeed || greed.RollState == RollState.UpToGreed) greed.Greed();
@@ -64,7 +64,7 @@ namespace Kombatant.Logic
 					break;
 
 				case LootMode.PassAll:
-					var pass = LootManager.AvailableLoots.FirstOrDefault(i => i.RolledState < RollOption.Pass);
+					var pass = LootManager.AvailableLoots.FirstOrDefault(i => i.RolledState < RollOption.Pass && i.LeftRollTime > 0);
 					if (pass.Valid)
 					{
 						if (pass.RolledState <= RollOption.Pass) pass.Pass();

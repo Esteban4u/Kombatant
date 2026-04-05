@@ -29,7 +29,7 @@ namespace Kombatant.Managers
 		[FieldOffset(0x3C)] public uint Index;
 
 		public bool Rolled => RolledState > 0;
-		public bool Valid => ObjectId != GameObjectManager.EmptyGameObject && ObjectId != 0;
+		public bool Valid => ObjectId != GameObjectManager.EmptyGameObject && ObjectId != 0 && ItemId != 0;
 
 		//public bool Needed => RolledState == (uint)RollOption.Need;
 		//public bool Greeded => RolledState == (uint)RollOption.Greed;
