@@ -376,8 +376,16 @@ namespace Kombatant.Constants
             // The Royal Menagerie (Trial)
             6333,    // Shinryu
 
-            // Alphascape V4.0 (Raid)
-            7762,    // Omega
+            // Sigmascape V4.0 (Raid O8)
+            7633,    // Omega-M
+            7634,    // Omega-F
+
+            // Alphascape V3.0 (Raid O11)
+            7635,    // Omega
+            7636,    // Omega (phase 2)
+
+            // Alphascape V4.0 (Raid O12)
+            7695,    // Omega
 
             // The Orbonne Monastery (Alliance Raid)
             8014,    // Ultima, the High Seraph
@@ -464,8 +472,12 @@ namespace Kombatant.Constants
             // The Tower of Babil
             10279,   // Barnabas
             10281,   // Lugae
+            10282,   // Lugae (phase 2)
             10285,   // Anima
             10288,   // Anima (phase 2)
+
+            // The Tower of Babil (Criterion)
+            12045,   // Suprae-Lugae
 
             // Vanaspati
             10717,   // Terminus Snatcher
@@ -476,6 +488,7 @@ namespace Kombatant.Constants
             10396,   // Lyssa
             10398,   // Ladon Lord
             10399,   // Hermes
+            10363,   // Hermes (MSQ/trial form)
 
             // The Aitiascope
             10290,   // Livia the Undeterred
@@ -567,6 +580,8 @@ namespace Kombatant.Constants
             12757,   // Protector
             12752,   // Zander the Snakeskinner
             12743,   // Zoraal Ja
+            12881,   // Zoraal Ja (trial phase 2)
+            12882,   // Zoraal Ja (trial phase 3)
 
             // Origenics
             12741,   // Herpekaris
@@ -591,6 +606,7 @@ namespace Kombatant.Constants
 
             // Yuweyawata Field Station
             13057,   // Wicked Thunder
+            13058,   // Wicked Thunder (phase 2)
             13623,   // Lindblum Zaghnal
             13634,   // Overseer Kanilokka
 
