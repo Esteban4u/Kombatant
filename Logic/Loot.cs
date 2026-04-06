@@ -50,6 +50,7 @@ namespace Kombatant.Logic
 					{
 						if (need.RollState == RollState.UpToNeed) need.Need();
 						else if (need.RollState == RollState.UpToGreed) need.Greed();
+						else need.Pass();
 						return Task.FromResult(true);
 					}
 					break;
@@ -59,6 +60,7 @@ namespace Kombatant.Logic
 					if (greed.Valid)
 					{
 						if (greed.RollState == RollState.UpToNeed || greed.RollState == RollState.UpToGreed) greed.Greed();
+						else greed.Pass();
 						return Task.FromResult(true);
 					}
 					break;
