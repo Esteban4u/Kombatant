@@ -179,6 +179,18 @@ namespace Kombatant.Constants
             3272,    // Anchag
             3274,    // Boogyman
             3280,    // Ferdiad
+
+            // ARR Trials
+            1185,    // Ifrit
+            1482,    // Twintania (The Binding Coil of Bahamut)
+            1644,    // Garuda
+            1801,    // Titan
+            2505,    // Leviathan
+            2550,    // Leviathan (hard)
+            2612,    // Nael deus Darnus (The Second Coil of Bahamut)
+            2832,    // Ramuh
+            2994,    // Shiva
+            3210,    // Bahamut Prime (The Final Coil of Bahamut)
         };
 
         /// <summary>
@@ -284,6 +296,20 @@ namespace Kombatant.Constants
             5529,    // The Leightonward
             5530,    // Gowrow
             5531,    // Lava Scorpion
+
+            // HW Trials
+            3632,    // King Thordan (The Singularity Reactor)
+            3649,    // Bismarck
+            3660,    // Ravana
+            4776,    // Sephirot
+            5199,    // Sophia
+            5567,    // Zurvan
+
+            // Alexander Raids (HW)
+            3745,    // Faust (A - The Fist of the Father)
+            4708,    // Brute Justice (A - The Arm of the Son)
+            5193,    // Alexander Prime (A - The Eyes of the Creator)
+            9042,    // Perfect Alexander (A - The Soul of the Creator)
         };
 
         /// <summary>
@@ -376,15 +402,31 @@ namespace Kombatant.Constants
             // The Royal Menagerie (Trial)
             6333,    // Shinryu
 
-            // Sigmascape V4.0 (Raid O8)
+            // SB Trials
+            6221,    // Susano
+            6385,    // Lakshmi
+            7092,    // Byakko
+            7225,    // Tsukuyomi
+            7702,    // Suzaku
+            7922,    // Seiryu
+
+            // Omega Raids: Deltascape (SB)
+            5629,    // Alte Roite (Deltascape V1.0)
+            5631,    // Catastrophe (Deltascape V3.0)
+
+            // Omega Raids: Sigmascape (SB)
+            7127,    // Phantom Train (Sigmascape V1.0)
+            5633,    // Halicarnassus (Sigmascape V2.0)
+
+            // Omega Raids: Sigmascape V4.0 (O8)
             7633,    // Omega-M
             7634,    // Omega-F
 
-            // Alphascape V3.0 (Raid O11)
+            // Omega Raids: Alphascape V3.0 (O11)
             7635,    // Omega
             7636,    // Omega (phase 2)
 
-            // Alphascape V4.0 (Raid O12)
+            // Omega Raids: Alphascape V4.0 (O12)
             7695,    // Omega
 
             // The Orbonne Monastery (Alliance Raid)
@@ -450,6 +492,20 @@ namespace Kombatant.Constants
 
             // The Dying Gasp (Trial)
             9020,    // Hades
+
+            // ShB Trials
+            8297,    // Innocence
+            8298,    // Innocence (phase 2)
+            8353,    // Innocence (Extreme)
+            8361,    // Titania
+            9341,    // Varis yae Galvus
+
+            // Eden Raids (ShB)
+            8341,    // Eden (Eden's Gate: Resurrection E1)
+            8382,    // Voidwalker (Eden's Gate: Descent E2)
+            8350,    // Titan (Eden's Gate: Inundation E3)
+            8486,    // Leviathan (Eden's Gate: Sepulture E4)
+            9832,    // Oracle of Darkness (Eden's Promise: Eternity E12)
 
             // Eden's Promise: Eternity (Raid E12)
             9481,    // Eden's Promise
@@ -537,14 +593,41 @@ namespace Kombatant.Constants
             12584,   // Durante
             12590,   // Durante (phase 2)
 
-            // The Final Day (Trial)
-            10434,   // The Endsinger
+            // EW Trials
+            10278,   // Meteion
+            10362,   // Meteion (Endsinger's Aria)
+            10434,   // The Endsinger (The Final Day)
+            10453,   // Hydaelyn (The Mothercrystal)
+            10456,   // Zodiark (The Dark Inside)
+            10298,   // Barbariccia (Mount Ordeals)
+            11398,   // Barbariccia (Extreme)
+            12054,   // Rubicante (The Voidcast Dais)
+            12365,   // Golbez (The Gilded Araya)
+            12586,   // Zeromus (The Abyssal Fracture)
 
-            // Pandaemonium: Anabaseios (Raid P12)
-            12369,   // Athena
+            // Pandaemonium: Asphodelos Raids (P1-P4)
+            10345,   // Erichthonios (P1)
+            10742,   // Hesperos (P4)
+
+            // Pandaemonium: Abyssos Raids (P5-P8)
+            10576,   // Erichthonios (P5)
+            11381,   // Hegemone (P6)
+            11374,   // Agdistis (P7)
+            11516,   // Agdistis (P7 phase 2)
+            11399,   // Hephaistos (P8)
+            11400,   // Hephaistos (P8 phase 2)
+            11401,   // Hephaistos (P8 phase 3)
+            11402,   // Hephaistos (P8 phase 4)
+            10744,   // Hesperos (P8 variant)
+
+            // Pandaemonium: Anabaseios Raids (P9-P12)
+            12369,   // Kokytos (P9)
+            11445,   // Themis (P10)
+            12388,   // Themis (P11)
+            12377,   // Athena (P12)
 
             // Thaleia (Alliance Raid)
-            12604,   // Eulogia
+            11301,   // Eulogia
 
             // Mount Rokkon (Variant/Criterion)
             12428,   // Shishio
@@ -625,12 +708,21 @@ namespace Kombatant.Constants
             14271,   // Amdusias
             14288,   // Thundergust Griffin
 
-            // The Interphos (Trial)
-            13264,   // Eternal Queen
+            // DT Trials
+            12688,   // Sphene (Worqor Lar Dor)
+            13141,   // Sphene (phase 2)
+            13160,   // Sphene (phase 3)
+            13865,   // Sphene (Extreme phase)
+            14474,   // Sphene (Savage phase)
+            13264,   // Eternal Queen (The Interphos)
 
-            // AAC Light-heavyweight (Raid)
-            13314,   // Black Cat
-            13315,   // Honey B. Lovely
+            // AAC Light-heavyweight Raids (DT)
+            12686,   // Black Cat (M1)
+            12685,   // Honey B. Lovely (M2)
+            13356,   // Brute Bomber (M3)
+            13057,   // Wicked Thunder (M4) — also in Yuweyawata dungeon
+            13058,   // Wicked Thunder (M4 phase 2)
+            13778,   // Dancing Green (M5)
         };
 
         /// <summary>
