@@ -26,6 +26,10 @@ namespace Kombatant.Logic
 
 		#endregion
 
+		// Tracks ObjectIds we have already attempted to roll on in the current loot window.
+		// Cleared when the loot window closes so new windows start fresh.
+		private readonly HashSet<uint> _attemptedObjectIds = new HashSet<uint>();
+
 		/// <summary>
 		/// Main task executor for the Loot logic.
 		/// </summary>
@@ -33,50 +37,53 @@ namespace Kombatant.Logic
 		internal new Task<bool> ExecuteLogic()
 		{
 			if (BotBase.Instance.IsPaused)
+				return Task.FromResult(false);
+
+			if (!LootManager.HasLoot)
 			{
+				_attemptedObjectIds.Clear();
 				return Task.FromResult(false);
 			}
 
-			if (!LootManager.HasLoot || BotBase.Instance.LootMode == LootMode.DontLoot || !WaitHelper.Instance.IsDoneWaiting("LootTimer", TimeSpan.FromMilliseconds(500)))
-			{
+			if (BotBase.Instance.LootMode == LootMode.DontLoot || !WaitHelper.Instance.IsDoneWaiting("LootTimer", TimeSpan.FromMilliseconds(500)))
 				return Task.FromResult(false);
-			}
 
 			switch (BotBase.Instance.LootMode)
 			{
 				case LootMode.NeedAndGreed:
-					var needItems = LootManager.AvailableLoots.Where(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId))).ToList();
-					if (needItems.Any())
+					var need = LootManager.AvailableLoots.FirstOrDefault(i =>
+						!i.Rolled && !_attemptedObjectIds.Contains(i.ObjectId) &&
+						i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
+					if (need.Valid)
 					{
-						foreach (var item in needItems)
-						{
-							if (item.RollState == RollState.UpToNeed) item.Need();
-							else if (item.RollState == RollState.UpToGreed) item.Greed();
-							else item.Pass();
-						}
+						_attemptedObjectIds.Add(need.ObjectId);
+						if (need.RollState == RollState.UpToNeed) need.Need();
+						else if (need.RollState == RollState.UpToGreed) need.Greed();
+						else need.Pass();
 						return Task.FromResult(true);
 					}
 					break;
 
 				case LootMode.GreedAll:
-					var greedItems = LootManager.AvailableLoots.Where(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId))).ToList();
-					if (greedItems.Any())
+					var greed = LootManager.AvailableLoots.FirstOrDefault(i =>
+						!i.Rolled && !_attemptedObjectIds.Contains(i.ObjectId) &&
+						i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
+					if (greed.Valid)
 					{
-						foreach (var item in greedItems)
-						{
-							if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed) item.Greed();
-							else item.Pass();
-						}
+						_attemptedObjectIds.Add(greed.ObjectId);
+						if (greed.RollState == RollState.UpToNeed || greed.RollState == RollState.UpToGreed) greed.Greed();
+						else greed.Pass();
 						return Task.FromResult(true);
 					}
 					break;
 
 				case LootMode.PassAll:
-					var passItems = LootManager.AvailableLoots.Where(i => !i.Rolled && i.LeftRollTime > 0).ToList();
-					if (passItems.Any())
+					var pass = LootManager.AvailableLoots.FirstOrDefault(i =>
+						!i.Rolled && !_attemptedObjectIds.Contains(i.ObjectId) && i.LeftRollTime > 0);
+					if (pass.Valid)
 					{
-						foreach (var item in passItems)
-							item.Pass();
+						_attemptedObjectIds.Add(pass.ObjectId);
+						pass.Pass();
 						return Task.FromResult(true);
 					}
 					break;
