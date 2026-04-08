@@ -332,7 +332,8 @@ namespace Kombatant.Logic
 								result = result.Where(o => o.IsEnemy() && (
 									GameObjectManager.Attackers.Contains(o) ||
 									o.TaggerObjectId == PartyManager.PartyId ||
-									partyObjectIds.Contains(o.TargetGameObject?.ObjectId ?? 0)));
+									partyObjectIds.Contains(o.TargetGameObject?.ObjectId ?? 0) ||
+									o.InCombat));
 							}
 							else
 							{

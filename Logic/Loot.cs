@@ -45,31 +45,38 @@ namespace Kombatant.Logic
 			switch (BotBase.Instance.LootMode)
 			{
 				case LootMode.NeedAndGreed:
-					var need = LootManager.AvailableLoots.FirstOrDefault(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
-					if (need.Valid)
+					var needItems = LootManager.AvailableLoots.Where(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId))).ToList();
+					if (needItems.Any())
 					{
-						if (need.RollState == RollState.UpToNeed) need.Need();
-						else if (need.RollState == RollState.UpToGreed) need.Greed();
-						else need.Pass();
+						foreach (var item in needItems)
+						{
+							if (item.RollState == RollState.UpToNeed) item.Need();
+							else if (item.RollState == RollState.UpToGreed) item.Greed();
+							else item.Pass();
+						}
 						return Task.FromResult(true);
 					}
 					break;
 
 				case LootMode.GreedAll:
-					var greed = LootManager.AvailableLoots.FirstOrDefault(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
-					if (greed.Valid)
+					var greedItems = LootManager.AvailableLoots.Where(i => !i.Rolled && i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId))).ToList();
+					if (greedItems.Any())
 					{
-						if (greed.RollState == RollState.UpToNeed || greed.RollState == RollState.UpToGreed) greed.Greed();
-						else greed.Pass();
+						foreach (var item in greedItems)
+						{
+							if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed) item.Greed();
+							else item.Pass();
+						}
 						return Task.FromResult(true);
 					}
 					break;
 
 				case LootMode.PassAll:
-					var pass = LootManager.AvailableLoots.FirstOrDefault(i => i.RolledState < RollOption.Pass && i.LeftRollTime > 0);
-					if (pass.Valid)
+					var passItems = LootManager.AvailableLoots.Where(i => !i.Rolled && i.LeftRollTime > 0).ToList();
+					if (passItems.Any())
 					{
-						if (pass.RolledState <= RollOption.Pass) pass.Pass();
+						foreach (var item in passItems)
+							item.Pass();
 						return Task.FromResult(true);
 					}
 					break;
