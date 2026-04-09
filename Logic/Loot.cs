@@ -26,9 +26,10 @@ namespace Kombatant.Logic
 
 		#endregion
 
-		// Tracks ObjectIds we have already attempted to roll on in the current loot window.
-		// Cleared when the loot window closes so new windows start fresh.
-		private readonly HashSet<uint> _attemptedObjectIds = new HashSet<uint>();
+		// Tracks slot indices we have already attempted to roll on in the current loot window.
+		// Index is unique per loot slot (0-15); cleared when the loot window closes so new
+		// windows (and new loot appearing mid-dungeon) are always picked up fresh.
+		private readonly HashSet<uint> _attemptedIndices = new HashSet<uint>();
 
 		/// <summary>
 		/// Main task executor for the Loot logic.
@@ -41,7 +42,7 @@ namespace Kombatant.Logic
 
 			if (!LootManager.HasLoot)
 			{
-				_attemptedObjectIds.Clear();
+				_attemptedIndices.Clear();
 				return Task.FromResult(false);
 			}
 
@@ -52,11 +53,11 @@ namespace Kombatant.Logic
 			{
 				case LootMode.NeedAndGreed:
 					var need = LootManager.AvailableLoots.FirstOrDefault(i =>
-						!i.Rolled && !_attemptedObjectIds.Contains(i.ObjectId) &&
+						!i.Rolled && !_attemptedIndices.Contains(i.Index) &&
 						i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
 					if (need.Valid)
 					{
-						_attemptedObjectIds.Add(need.ObjectId);
+						_attemptedIndices.Add(need.Index);
 						if (need.RollState == RollState.UpToNeed) need.Need();
 						else if (need.RollState == RollState.UpToGreed) need.Greed();
 						else need.Pass();
@@ -66,11 +67,11 @@ namespace Kombatant.Logic
 
 				case LootMode.GreedAll:
 					var greed = LootManager.AvailableLoots.FirstOrDefault(i =>
-						!i.Rolled && !_attemptedObjectIds.Contains(i.ObjectId) &&
+						!i.Rolled && !_attemptedIndices.Contains(i.Index) &&
 						i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
 					if (greed.Valid)
 					{
-						_attemptedObjectIds.Add(greed.ObjectId);
+						_attemptedIndices.Add(greed.Index);
 						if (greed.RollState == RollState.UpToNeed || greed.RollState == RollState.UpToGreed) greed.Greed();
 						else greed.Pass();
 						return Task.FromResult(true);
@@ -79,10 +80,10 @@ namespace Kombatant.Logic
 
 				case LootMode.PassAll:
 					var pass = LootManager.AvailableLoots.FirstOrDefault(i =>
-						!i.Rolled && !_attemptedObjectIds.Contains(i.ObjectId) && i.LeftRollTime > 0);
+						!i.Rolled && !_attemptedIndices.Contains(i.Index) && i.LeftRollTime > 0);
 					if (pass.Valid)
 					{
-						_attemptedObjectIds.Add(pass.ObjectId);
+						_attemptedIndices.Add(pass.Index);
 						pass.Pass();
 						return Task.FromResult(true);
 					}
