@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -26,10 +26,11 @@ namespace Kombatant.Logic
 
 		#endregion
 
-		// Tracks slot indices we have already attempted to roll on in the current loot window.
-		// Index is unique per loot slot (0-15); cleared when the loot window closes so new
-		// windows (and new loot appearing mid-dungeon) are always picked up fresh.
-		private readonly HashSet<uint> _attemptedIndices = new HashSet<uint>();
+		// Tracks which raw array slots (0-15) we have already attempted to roll on.
+		// Uses the array position in RawLootItems rather than any field inside the struct,
+		// since ObjectId is shared across items from the same source and Index (0x3C) is
+		// unreliable. Cleared when the loot window closes so new windows start fresh.
+		private readonly HashSet<int> _attemptedSlots = new HashSet<int>();
 
 		/// <summary>
 		/// Main task executor for the Loot logic.
@@ -42,49 +43,51 @@ namespace Kombatant.Logic
 
 			if (!LootManager.HasLoot)
 			{
-				_attemptedIndices.Clear();
+				_attemptedSlots.Clear();
 				return Task.FromResult(false);
 			}
 
 			if (BotBase.Instance.LootMode == LootMode.DontLoot || !WaitHelper.Instance.IsDoneWaiting("LootTimer", TimeSpan.FromMilliseconds(500)))
 				return Task.FromResult(false);
 
+			var rawItems = LootManager.RawLootItems;
+
 			switch (BotBase.Instance.LootMode)
 			{
 				case LootMode.NeedAndGreed:
-					var need = LootManager.AvailableLoots.FirstOrDefault(i =>
-						!i.Rolled && !_attemptedIndices.Contains(i.Index) &&
-						i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
-					if (need.Valid)
+					for (int slot = 0; slot < rawItems.Length; slot++)
 					{
-						_attemptedIndices.Add(need.Index);
-						if (need.RollState == RollState.UpToNeed) need.Need();
-						else if (need.RollState == RollState.UpToGreed) need.Greed();
-						else need.Pass();
+						var item = rawItems[slot];
+						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
+						if (item.Item.Unique && ConditionParser.HasItem(item.ItemId)) continue;
+						_attemptedSlots.Add(slot);
+						if (item.RollState == RollState.UpToNeed) item.Need();
+						else if (item.RollState == RollState.UpToGreed) item.Greed();
+						else item.Pass();
 						return Task.FromResult(true);
 					}
 					break;
 
 				case LootMode.GreedAll:
-					var greed = LootManager.AvailableLoots.FirstOrDefault(i =>
-						!i.Rolled && !_attemptedIndices.Contains(i.Index) &&
-						i.LeftRollTime > 0 && !(i.Item.Unique && ConditionParser.HasItem(i.ItemId)));
-					if (greed.Valid)
+					for (int slot = 0; slot < rawItems.Length; slot++)
 					{
-						_attemptedIndices.Add(greed.Index);
-						if (greed.RollState == RollState.UpToNeed || greed.RollState == RollState.UpToGreed) greed.Greed();
-						else greed.Pass();
+						var item = rawItems[slot];
+						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
+						if (item.Item.Unique && ConditionParser.HasItem(item.ItemId)) continue;
+						_attemptedSlots.Add(slot);
+						if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed) item.Greed();
+						else item.Pass();
 						return Task.FromResult(true);
 					}
 					break;
 
 				case LootMode.PassAll:
-					var pass = LootManager.AvailableLoots.FirstOrDefault(i =>
-						!i.Rolled && !_attemptedIndices.Contains(i.Index) && i.LeftRollTime > 0);
-					if (pass.Valid)
+					for (int slot = 0; slot < rawItems.Length; slot++)
 					{
-						_attemptedIndices.Add(pass.Index);
-						pass.Pass();
+						var item = rawItems[slot];
+						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
+						_attemptedSlots.Add(slot);
+						item.Pass();
 						return Task.FromResult(true);
 					}
 					break;
