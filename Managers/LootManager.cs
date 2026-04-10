@@ -58,17 +58,18 @@ namespace Kombatant.Managers
 				}
 			}
 
+			var itemName = Item?.CurrentLocaleName ?? $"ItemId:{ItemId}";
 			if (result)
 			{
-				LogHelper.Instance.Log($"Rolled {option} for {Item.CurrentLocaleName}. LootState: {RollState} Remaining time: {LeftRollTime:F2}");
+				LogHelper.Instance.Log($"Rolled {option} for {itemName}. LootState: {RollState} Remaining time: {LeftRollTime:F2}");
 				if (BotBase.Instance.ShowLootNotification)
 				{
-					OverlayHelper.Instance.AddToast($"Rolled [{option}] for {Item.CurrentLocaleName}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+					OverlayHelper.Instance.AddToast($"Rolled [{option}] for {itemName}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 				}
 			}
 			else
 			{
-				LogHelper.Instance.Log($"Failed rolling {option} for {Item.CurrentLocaleName}. LootState: {RollState} Remaining time: {LeftRollTime:F2}");
+				LogHelper.Instance.Log($"Failed rolling {option} for {itemName}. LootState: {RollState} Remaining time: {LeftRollTime:F2}");
 			}
 
 			return result;
