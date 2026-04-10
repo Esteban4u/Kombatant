@@ -37,15 +37,14 @@ namespace Kombatant.Managers
 
 		public Item Item => DataManager.GetItem(ItemId);
 
-		public bool Need() => Roll(RollOption.Need);
-		public bool Greed() => Roll(RollOption.Greed);
-		public bool Pass() => Roll(RollOption.Pass);
+		public bool Need(int slotIndex) => Roll(RollOption.Need, slotIndex);
+		public bool Greed(int slotIndex) => Roll(RollOption.Greed, slotIndex);
+		public bool Pass(int slotIndex) => Roll(RollOption.Pass, slotIndex);
 
-		public bool Roll(RollOption option)
+		public bool Roll(RollOption option, int slotIndex)
 		{
 			bool result;
-			var thisLootItem = this;
-			var findIndex = Array.FindIndex(LootManager.RawLootItems, item => item.Equals(thisLootItem));
+			var findIndex = slotIndex;
 			using (Core.Memory.TemporaryCacheState(false))
 			{
 				lock (Core.Memory.Executor.AssemblyLock)

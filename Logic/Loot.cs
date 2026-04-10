@@ -61,9 +61,9 @@ namespace Kombatant.Logic
 						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
 						if (item.Item.Unique && ConditionParser.HasItem(item.ItemId)) continue;
 						_attemptedSlots.Add(slot);
-						if (item.RollState == RollState.UpToNeed) item.Need();
-						else if (item.RollState == RollState.UpToGreed) item.Greed();
-						else item.Pass();
+						if (item.RollState == RollState.UpToNeed) item.Need(slot);
+						else if (item.RollState == RollState.UpToGreed) item.Greed(slot);
+						else item.Pass(slot);
 						return Task.FromResult(true);
 					}
 					break;
@@ -75,8 +75,8 @@ namespace Kombatant.Logic
 						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
 						if (item.Item.Unique && ConditionParser.HasItem(item.ItemId)) continue;
 						_attemptedSlots.Add(slot);
-						if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed) item.Greed();
-						else item.Pass();
+						if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed) item.Greed(slot);
+						else item.Pass(slot);
 						return Task.FromResult(true);
 					}
 					break;
@@ -87,7 +87,7 @@ namespace Kombatant.Logic
 						var item = rawItems[slot];
 						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
 						_attemptedSlots.Add(slot);
-						item.Pass();
+						item.Pass(slot);
 						return Task.FromResult(true);
 					}
 					break;
