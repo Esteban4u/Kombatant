@@ -725,7 +725,6 @@ namespace Kombatant.Constants
             13778,   // Dancing Green (M5)
 
             // AAC Heavyweight Raids (DT 7.2)
-            14288,   // Thundergust Griffin (M1 or M3/M4 - seen in same session, exact wing TBD)
             14369,   // Deep Blue (M2)
             14370,   // Red Hot (M2)
         };
