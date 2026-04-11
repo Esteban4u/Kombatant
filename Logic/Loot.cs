@@ -52,13 +52,27 @@ namespace Kombatant.Logic
 
 			var rawItems = LootManager.RawLootItems;
 
+			// Diagnostic: dump every slot's state once per timer window so we can see what the game reports
+			var diagLines = new System.Text.StringBuilder();
+			diagLines.Append("[Loot] Slot dump:");
+			for (int i = 0; i < rawItems.Length; i++)
+			{
+				var s = rawItems[i];
+				if (s.ObjectId == 0 && s.ItemId == 0) continue;
+				diagLines.Append($" [{i}] ObjId={s.ObjectId} ItemId={s.ItemId} RollState={s.RollState} RolledState={s.RolledState} LeftRoll={s.LeftRollTime:F1} Valid={s.Valid} Rolled={s.Rolled}");
+			}
+			LogHelper.Instance.Log(diagLines.ToString());
+
 			switch (BotBase.Instance.LootMode)
 			{
 				case LootMode.NeedAndGreed:
 					for (int slot = 0; slot < rawItems.Length; slot++)
 					{
 						var item = rawItems[slot];
-						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
+						if (!item.Valid) { if (item.ItemId != 0) LogHelper.Instance.Log($"[Loot] Slot {slot} skip: not valid (ObjId={item.ObjectId} ItemId={item.ItemId})"); continue; }
+						if (item.Rolled) { LogHelper.Instance.Log($"[Loot] Slot {slot} skip: already rolled (RolledState={item.RolledState})"); continue; }
+						if (_attemptedSlots.Contains(slot)) { LogHelper.Instance.Log($"[Loot] Slot {slot} skip: already attempted"); continue; }
+						if (item.LeftRollTime <= 0) { LogHelper.Instance.Log($"[Loot] Slot {slot} skip: LeftRollTime={item.LeftRollTime}"); continue; }
 						var itemData = item.Item;
 						if (itemData != null && itemData.Unique && ConditionParser.HasItem(item.ItemId)) continue;
 						_attemptedSlots.Add(slot);
