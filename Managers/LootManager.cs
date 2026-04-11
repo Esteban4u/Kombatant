@@ -29,7 +29,9 @@ namespace Kombatant.Managers
 		[FieldOffset(0x3C)] public uint Index;
 
 		public bool Rolled => RolledState > 0;
-		public bool Valid => ObjectId != GameObjectManager.EmptyGameObject && ObjectId != 0 && ItemId != 0;
+		// ItemIds above 500000 are phantom/garbage memory (real FFXIV IDs top out well below this).
+		// HQ items use baseId + 1,000,000 so allow up to 2,000,000 to be safe.
+		public bool Valid => ObjectId != GameObjectManager.EmptyGameObject && ObjectId != 0 && ItemId != 0 && ItemId < 2_000_000;
 
 		//public bool Needed => RolledState == (uint)RollOption.Need;
 		//public bool Greeded => RolledState == (uint)RollOption.Greed;

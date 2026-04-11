@@ -723,6 +723,9 @@ namespace Kombatant.Constants
             13057,   // Wicked Thunder (M4) — also in Yuweyawata dungeon
             13058,   // Wicked Thunder (M4 phase 2)
             13778,   // Dancing Green (M5)
+
+            // AAC Heavyweight Raids (DT 7.2)
+            14288,   // Thundergust Griffin (M2)
         };
 
         /// <summary>
