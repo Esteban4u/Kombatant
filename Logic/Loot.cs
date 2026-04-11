@@ -26,11 +26,14 @@ namespace Kombatant.Logic
 
 		#endregion
 
-		// Tracks which raw array slots (0-15) we have already attempted to roll on.
-		// Uses the array position in RawLootItems rather than any field inside the struct,
-		// since ObjectId is shared across items from the same source and Index (0x3C) is
-		// unreliable. Cleared when the loot window closes so new windows start fresh.
-		private readonly HashSet<int> _attemptedSlots = new HashSet<int>();
+		// Tracks items we have already attempted to roll on this loot window, by (ObjectId, ItemId).
+		// Slot-position tracking was unreliable because the game compacts the array after each roll,
+		// causing the next real item to land at slot 0 where it would be skipped.
+		// Composite key handles shared ObjectId across items from the same source.
+		// Cleared when the loot window closes so new windows start fresh.
+		private readonly HashSet<(uint, uint)> _attemptedItems = new HashSet<(uint, uint)>();
+
+		private static (uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId);
 
 		/// <summary>
 		/// Main task executor for the Loot logic.
@@ -43,7 +46,7 @@ namespace Kombatant.Logic
 
 			if (!LootManager.HasLoot)
 			{
-				_attemptedSlots.Clear();
+				_attemptedItems.Clear();
 				return Task.FromResult(false);
 			}
 
@@ -52,30 +55,16 @@ namespace Kombatant.Logic
 
 			var rawItems = LootManager.RawLootItems;
 
-			// Diagnostic: dump every slot's state once per timer window so we can see what the game reports
-			var diagLines = new System.Text.StringBuilder();
-			diagLines.Append("[Loot] Slot dump:");
-			for (int i = 0; i < rawItems.Length; i++)
-			{
-				var s = rawItems[i];
-				if (s.ObjectId == 0 && s.ItemId == 0) continue;
-				diagLines.Append($" [{i}] ObjId={s.ObjectId} ItemId={s.ItemId} RollState={s.RollState} RolledState={s.RolledState} LeftRoll={s.LeftRollTime:F1} Valid={s.Valid} Rolled={s.Rolled}");
-			}
-			LogHelper.Instance.Log(diagLines.ToString());
-
 			switch (BotBase.Instance.LootMode)
 			{
 				case LootMode.NeedAndGreed:
 					for (int slot = 0; slot < rawItems.Length; slot++)
 					{
 						var item = rawItems[slot];
-						if (!item.Valid) { if (item.ItemId != 0) LogHelper.Instance.Log($"[Loot] Slot {slot} skip: not valid (ObjId={item.ObjectId} ItemId={item.ItemId})"); continue; }
-						if (item.Rolled) { LogHelper.Instance.Log($"[Loot] Slot {slot} skip: already rolled (RolledState={item.RolledState})"); continue; }
-						if (_attemptedSlots.Contains(slot)) { LogHelper.Instance.Log($"[Loot] Slot {slot} skip: already attempted"); continue; }
-						if (item.LeftRollTime <= 0) { LogHelper.Instance.Log($"[Loot] Slot {slot} skip: LeftRollTime={item.LeftRollTime}"); continue; }
+						if (!item.Valid || item.Rolled || _attemptedItems.Contains(Key(item)) || item.LeftRollTime <= 0) continue;
 						var itemData = item.Item;
 						if (itemData != null && itemData.Unique && ConditionParser.HasItem(item.ItemId)) continue;
-						_attemptedSlots.Add(slot);
+						_attemptedItems.Add(Key(item));
 						if (item.RollState == RollState.UpToNeed) item.Need(slot);
 						else if (item.RollState == RollState.UpToGreed) item.Greed(slot);
 						else item.Pass(slot);
@@ -87,10 +76,10 @@ namespace Kombatant.Logic
 					for (int slot = 0; slot < rawItems.Length; slot++)
 					{
 						var item = rawItems[slot];
-						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
+						if (!item.Valid || item.Rolled || _attemptedItems.Contains(Key(item)) || item.LeftRollTime <= 0) continue;
 						var itemData = item.Item;
 						if (itemData != null && itemData.Unique && ConditionParser.HasItem(item.ItemId)) continue;
-						_attemptedSlots.Add(slot);
+						_attemptedItems.Add(Key(item));
 						if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed) item.Greed(slot);
 						else item.Pass(slot);
 						return Task.FromResult(true);
@@ -101,8 +90,8 @@ namespace Kombatant.Logic
 					for (int slot = 0; slot < rawItems.Length; slot++)
 					{
 						var item = rawItems[slot];
-						if (!item.Valid || item.Rolled || _attemptedSlots.Contains(slot) || item.LeftRollTime <= 0) continue;
-						_attemptedSlots.Add(slot);
+						if (!item.Valid || item.Rolled || _attemptedItems.Contains(Key(item)) || item.LeftRollTime <= 0) continue;
+						_attemptedItems.Add(Key(item));
 						item.Pass(slot);
 						return Task.FromResult(true);
 					}
