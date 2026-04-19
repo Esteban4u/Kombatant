@@ -83,5 +83,26 @@ namespace Kombatant.Managers
 		public static List<LootItem> AvailableLoots => RawLootItems.Where(i => i.Valid).ToList();
 		public static LootItem[] RawLootItems => Core.Memory.ReadArray<LootItem>(Offsets.Instance.LootsAddr + 0x10, 16);
 		public static bool HasLoot => AvailableLoots.Any();
+
+		// Calls the game's loot roll function directly by index, without requiring the item to be
+		// visible in the memory array. Used to roll on items 2+ that the game doesn't always surface
+		// at the expected memory offsets.
+		public static bool RollBlind(RollOption option, int index)
+		{
+			bool result;
+			using (Core.Memory.TemporaryCacheState(false))
+			{
+				lock (Core.Memory.Executor.AssemblyLock)
+				{
+					result = Core.Memory.CallInjected64<bool>(Offsets.Instance.LootFunc, new object[]
+					{
+						Offsets.Instance.LootsAddr,
+						(ulong)option,
+						index
+					});
+				}
+			}
+			return result;
+		}
 	}
 }
