@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows.Media;
-using ff14bot;
 using ff14bot.Managers;
 using ff14bot.NeoProfiles;
 using Kombatant.Enums;
@@ -41,23 +40,9 @@ namespace Kombatant.Logic
 
 		private static (uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId);
 
-		// Offsets for reading NeedGreed window element count and element array pointer.
-		// These are the standard RebornBuddy (non-DT) build values.
-		private const int WindowElemCountOffset = 0x1CA;
-		private const int WindowElemsAddrOffset = 0x160;
-
-		private static int GetNeedGreedItemCount()
-		{
-			var window = RaptureAtkUnitManager.GetWindowByName("NeedGreed");
-			if (window == null) return 0;
-			var elemCount = Core.Memory.Read<ushort>(window.Pointer + WindowElemCountOffset);
-			if (elemCount < 4) return 0;
-			var elemsAddr = Core.Memory.Read<IntPtr>(window.Pointer + WindowElemsAddrOffset);
-			if (elemsAddr == IntPtr.Zero) return 0;
-			// Element[3] holds the item count (NeedGreed window layout).
-			var elems = Core.Memory.ReadArray<TwoInt>(elemsAddr, 4);
-			return elems[3].TrimmedData;
-		}
+		// Max window slots to probe.  The game silently ignores ClickItem for out-of-range indices,
+		// so using a fixed cap avoids needing to read the window's element array.
+		private const int NeedGreedMaxSlots = 8;
 
 		/// <summary>
 		/// Main task executor for the Loot logic.
@@ -132,41 +117,39 @@ namespace Kombatant.Logic
 			}
 
 			// Pass 2: items visible in the NeedGreed UI window but absent from the memory array.
-			// Items 2+ in group loot are often stored at dynamic per-item pointers and do not appear
+			// Items 2+ in group loot are stored at dynamic per-item pointers and do not appear
 			// in the flat array at LootsAddr+0x10.  We drive the window directly via SendAction.
 			//
 			// NeedGreed window SendAction roll-option encoding (first pair value):
 			//   0 = Need,  1 = Greed,  2 = Pass
-			// (Same byte ordering as the visible button sequence in the UI.)
 			//
 			// For NeedAndGreed mode we run two sub-passes:
-			//   Sub-pass A (Need): send Need for every item.  Items where Need is ineligible are
-			//                      silently rejected by the game; the item remains unrolled.
-			//   Sub-pass B (Greed): send Greed for every item.  Items already Needed are ignored;
-			//                       items rejected in sub-pass A now roll Greed.
+			//   Sub-pass A (Need): send Need for every slot.  Slots where Need is ineligible are
+			//                      silently rejected by the game; the item stays unrolled.
+			//   Sub-pass B (Greed): send Greed for every slot.  Already-Needed items are ignored;
+			//                       Need-rejected items now roll Greed.
+			// Out-of-range slot indices (beyond actual item count) are silently ignored by the game.
 			var ngWindow = RaptureAtkUnitManager.GetWindowByName("NeedGreed");
 			if (ngWindow != null)
 			{
-				int numItems = GetNeedGreedItemCount();
-
 				// Sub-pass A: Need (NeedAndGreed mode only)
 				if (BotBase.Instance.LootMode == LootMode.NeedAndGreed)
 				{
-					for (int i = 0; i < numItems; i++)
+					for (int i = 0; i < NeedGreedMaxSlots; i++)
 					{
 						if (_ngNeedTried.Contains(i)) continue;
 						_ngNeedTried.Add(i);
-						ngWindow.SendAction(2, 3, 0, 4, (ulong)i);              // ClickItem(i)
-						ngWindow.SendAction(4, 3, 0, 4, 0, 4, 0, 3, 1);        // Need
-						LogHelper.Instance.Log($"Sent Need via NeedGreed window for item index {i}.");
+						ngWindow.SendAction(2, 3, 0, 4, (ulong)i);          // ClickItem(i)
+						ngWindow.SendAction(4, 3, 0, 4, 0, 4, 0, 3, 1);    // Need
+						LogHelper.Instance.Log($"Sent Need via NeedGreed window for slot {i}.");
 						if (BotBase.Instance.ShowLootNotification)
-							OverlayHelper.Instance.AddToast($"Rolled [Need] window index {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+							OverlayHelper.Instance.AddToast($"Rolled [Need] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 						return Task.FromResult(true);
 					}
 				}
 
 				// Sub-pass B: Greed (NeedAndGreed / GreedAll) or Pass (PassAll)
-				for (int i = 0; i < numItems; i++)
+				for (int i = 0; i < NeedGreedMaxSlots; i++)
 				{
 					if (_ngGreedTried.Contains(i)) continue;
 					_ngGreedTried.Add(i);
@@ -177,15 +160,15 @@ namespace Kombatant.Logic
 						case LootMode.NeedAndGreed:
 						case LootMode.GreedAll:
 							ngWindow.SendAction(4, 3, 1, 4, 0, 4, 0, 3, 1);    // Greed
-							LogHelper.Instance.Log($"Sent Greed via NeedGreed window for item index {i}.");
+							LogHelper.Instance.Log($"Sent Greed via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
-								OverlayHelper.Instance.AddToast($"Rolled [Greed] window index {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 						case LootMode.PassAll:
 							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);    // Pass
-							LogHelper.Instance.Log($"Sent Pass via NeedGreed window for item index {i}.");
+							LogHelper.Instance.Log($"Sent Pass via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
-								OverlayHelper.Instance.AddToast($"Rolled [Pass] window index {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 					}
 					return Task.FromResult(true);
