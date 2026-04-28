@@ -133,6 +133,8 @@ namespace Kombatant.Logic
 			if (ngWindow != null)
 			{
 				// Sub-pass A: Need (NeedAndGreed mode only)
+				// SendAction layout: pairCount=4, (3,2)=roll action, (4,rollOpt)=option, (4,0)=itemId, (3,1)=confirm
+				// Roll options (second pair value): 0=Pass, 1=Greed, 2=Need  (matches PassItem known code)
 				if (BotBase.Instance.LootMode == LootMode.NeedAndGreed)
 				{
 					for (int i = 0; i < NeedGreedMaxSlots; i++)
@@ -140,7 +142,7 @@ namespace Kombatant.Logic
 						if (_ngNeedTried.Contains(i)) continue;
 						_ngNeedTried.Add(i);
 						ngWindow.SendAction(2, 3, 0, 4, (ulong)i);          // ClickItem(i)
-						ngWindow.SendAction(4, 3, 0, 4, 0, 4, 0, 3, 1);    // Need
+						ngWindow.SendAction(4, 3, 2, 4, 2, 4, 0, 3, 1);    // Need (option 2)
 						LogHelper.Instance.Log($"Sent Need via NeedGreed window for slot {i}.");
 						if (BotBase.Instance.ShowLootNotification)
 							OverlayHelper.Instance.AddToast($"Rolled [Need] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
@@ -159,13 +161,13 @@ namespace Kombatant.Logic
 					{
 						case LootMode.NeedAndGreed:
 						case LootMode.GreedAll:
-							ngWindow.SendAction(4, 3, 1, 4, 0, 4, 0, 3, 1);    // Greed
+							ngWindow.SendAction(4, 3, 2, 4, 1, 4, 0, 3, 1);    // Greed (option 1)
 							LogHelper.Instance.Log($"Sent Greed via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 						case LootMode.PassAll:
-							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);    // Pass
+							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);    // Pass (option 0)
 							LogHelper.Instance.Log($"Sent Pass via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
