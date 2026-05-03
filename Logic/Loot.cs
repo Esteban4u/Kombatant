@@ -134,9 +134,13 @@ namespace Kombatant.Logic
 			//
 			// SendAction layout for a roll: (pairCount=4)
 			//   Pair 1  (3, 2)         – event type 2 = roll
-			//   Pair 2  (4, rollOpt)   – roll option: 0=Pass, 1=Greed, 2=Need
-			//   Pair 3  (4, 0)         – item-id slot (0 = currently selected, set by ClickItem)
-			//   Pair 4  (3, 1)         – confirm flag
+			//   Pair 2  (4, 0)         – always 0 (matches LlamaLibrary PassItem)
+			//   Pair 3  (4, 0)         – item-id (0 = game uses the item selected by ClickItem)
+			//   Pair 4  (3, rollType)  – roll type: 1=Pass, 2=Greed  (confirmed by in-game behaviour)
+			//
+			// Evidence: changing Pair 2 while leaving Pair 4=(3,1) produced Pass for every item,
+			// confirming Pair 4 is the roll type and Pair 2 is not.
+			// LlamaLibrary PassItem uses (3,1) in Pair 4 and rolls Pass — confirmed working.
 			//
 			// For NeedAndGreed mode we use Greed here.  Need eligibility cannot be determined
 			// without reading window elements (TwoInt, unavailable in this compilation context).
@@ -155,13 +159,13 @@ namespace Kombatant.Logic
 					{
 						case LootMode.NeedAndGreed:
 						case LootMode.GreedAll:
-							ngWindow.SendAction(4, 3, 2, 4, 1, 4, 0, 3, 1);  // Greed
+							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 2);  // Greed (rollType=2)
 							LogHelper.Instance.Log($"[Loot] Sent Greed via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 						case LootMode.PassAll:
-							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);  // Pass
+							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);  // Pass (rollType=1)
 							LogHelper.Instance.Log($"[Loot] Sent Pass via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
