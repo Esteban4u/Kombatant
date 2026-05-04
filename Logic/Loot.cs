@@ -35,8 +35,7 @@ namespace Kombatant.Logic
 
 		private static (uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId);
 
-		// Max window slots to probe per loot session.  The game silently ignores ClickItem
-		// for out-of-range indices, so a fixed cap is safe.
+		// Max window slots to probe per loot session.
 		private const int NeedGreedMaxSlots = 8;
 
 		private void ResetState()
@@ -54,14 +53,26 @@ namespace Kombatant.Logic
 			if (BotBase.Instance.IsPaused)
 				return Task.FromResult(false);
 
-			// Determine loot availability from both sources.
-			// BUG FIX: clearing state when ONLY the memory array is empty caused sub-pass B
-			// (Greed) to never run — the game clears item 0 from the array immediately after
-			// rolling, while the NeedGreed window (with items 2+) is still open.
-			// We now clear only when BOTH sources indicate no pending loot.
+			// The NeedGreed window only appears after the player clicks the loot notification icon.
+			// Check for that icon and open the window if it is not already open.
 			var ngWindow = RaptureAtkUnitManager.GetWindowByName("NeedGreed");
+			if (ngWindow == null)
+			{
+				var notification = RaptureAtkUnitManager.GetWindowByName("_Notification");
+				if (notification != null)
+				{
+					// Same call LlamaLibrary GeneralFunctions.PassOnAllLoot() uses to open NeedGreed.
+					notification.SendAction(3, 3, 0, 3, 2, 6, 0x375B30E7);
+					LogHelper.Instance.Log("[Loot] Clicked loot notification to open NeedGreed window.");
+					return Task.FromResult(true);
+				}
+			}
+
 			bool hasMemoryLoot = LootManager.HasLoot;
 
+			// Clear state only when both the memory array and the window indicate no loot.
+			// The game clears the memory array immediately after item 0 is rolled, while the
+			// window (with items 2+) may still be open.
 			if (!hasMemoryLoot && ngWindow == null)
 			{
 				ResetState();
@@ -76,7 +87,7 @@ namespace Kombatant.Logic
 
 			// Pass 1: items visible in the memory array carry full RollState/ItemId data.
 			// Handles item 0 (and any others the game surfaces in the flat array) with
-			// correct Need/Greed/Pass logic.
+			// correct Need/Greed/Pass logic based on actual per-item roll state.
 			if (hasMemoryLoot)
 			{
 				var rawItems = LootManager.RawLootItems;
@@ -127,25 +138,20 @@ namespace Kombatant.Logic
 				}
 			}
 
-			// Pass 2: items visible in the NeedGreed UI window but absent from the memory
-			// array.  Items 2+ in group loot are stored at dynamic per-item pointers and do
-			// not appear in the flat array at LootsAddr+0x10.  We drive the window directly
-			// via AtkAddonControl.SendAction.
+			// Pass 2: items visible in the NeedGreed UI window but absent from the memory array.
+			// Items 2+ in group loot are stored at dynamic per-item pointers, not in the flat
+			// array at LootsAddr+0x10.
 			//
-			// SendAction layout for a roll: (pairCount=4)
-			//   Pair 1  (3, 2)         – event type 2 = roll
-			//   Pair 2  (4, 0)         – always 0 (matches LlamaLibrary PassItem)
-			//   Pair 3  (4, 0)         – item-id (0 = game uses the item selected by ClickItem)
-			//   Pair 4  (3, rollType)  – roll type: 1=Pass, 2=Greed  (confirmed by in-game behaviour)
+			// SendAction encoding — determined empirically:
+			//   ClickItem  : SendAction(2, [3,0], [4,slotIndex])          — selects the item
+			//   Roll       : SendAction(4, [3,eventId], [4,0], [4,0], [3,1])
 			//
-			// Evidence: changing Pair 2 while leaving Pair 4=(3,1) produced Pass for every item,
-			// confirming Pair 4 is the roll type and Pair 2 is not.
-			// LlamaLibrary PassItem uses (3,1) in Pair 4 and rolls Pass — confirmed working.
+			//   eventId in Pair 1:
+			//     2 = Pass  (confirmed: LlamaLibrary PassItem uses this, triggers SelectYesno)
+			//     1 = Greed (hypothesis: next candidate after 2=Pass confirmed)
 			//
-			// For NeedAndGreed mode we use Greed here.  Need eligibility cannot be determined
-			// without reading window elements (TwoInt, unavailable in this compilation context).
-			// Greed is safe for all rollable items and avoids a two-phase loop that routinely
-			// runs out of time before the window closes.
+			// Note: varying Pair 2 or Pair 4 while keeping eventId=2 always produced Pass,
+			// confirming eventId (Pair 1) is the discriminator, not Pair 4.
 			if (ngWindow != null)
 			{
 				for (int i = 0; i < NeedGreedMaxSlots; i++)
@@ -159,14 +165,16 @@ namespace Kombatant.Logic
 					{
 						case LootMode.NeedAndGreed:
 						case LootMode.GreedAll:
-							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 2);  // Greed (rollType=2)
-							LogHelper.Instance.Log($"[Loot] Sent Greed via NeedGreed window for slot {i}.");
+							// eventId=1 is the next untested candidate after 2=Pass.
+							ngWindow.SendAction(4, 3, 1, 4, 0, 4, 0, 3, 1);
+							LogHelper.Instance.Log($"[Loot] Sent Greed (eventId=1) via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 						case LootMode.PassAll:
-							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);  // Pass (rollType=1)
-							LogHelper.Instance.Log($"[Loot] Sent Pass via NeedGreed window for slot {i}.");
+							// eventId=2 confirmed Pass.
+							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);
+							LogHelper.Instance.Log($"[Loot] Sent Pass (eventId=2) via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
