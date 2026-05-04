@@ -35,8 +35,8 @@ namespace Kombatant.Logic
 
 		private static (uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId);
 
-		// Max window slots to probe per loot session.
-		private const int NeedGreedMaxSlots = 8;
+		// Max window slots to probe per loot session.  Alliance raids can have 9+ items.
+		private const int NeedGreedMaxSlots = 16;
 
 		private void ResetState()
 		{
@@ -142,16 +142,20 @@ namespace Kombatant.Logic
 			// Items 2+ in group loot are stored at dynamic per-item pointers, not in the flat
 			// array at LootsAddr+0x10.
 			//
-			// SendAction encoding — determined empirically:
-			//   ClickItem  : SendAction(2, [3,0], [4,slotIndex])          — selects the item
-			//   Roll       : SendAction(4, [3,eventId], [4,0], [4,0], [3,1])
+			// SendAction encoding — determined empirically over multiple tests:
 			//
-			//   eventId in Pair 1:
-			//     2 = Pass  (confirmed: LlamaLibrary PassItem uses this, triggers SelectYesno)
-			//     1 = Greed (hypothesis: next candidate after 2=Pass confirmed)
+			//   ClickItem (select):
+			//     SendAction(2, [3,0], [4,slotIndex])   — 2-pair format, actionCode=0
 			//
-			// Note: varying Pair 2 or Pair 4 while keeping eventId=2 always produced Pass,
-			// confirming eventId (Pair 1) is the discriminator, not Pair 4.
+			//   Pass (confirmed working, triggers SelectYesno confirmation):
+			//     SendAction(4, [3,2], [4,0], [4,0], [3,1])  — 4-pair format
+			//
+			//   ALL 4-pair variants tested (eventId=1,2; Pair2=0,1; Pair4=1,2) → always Pass.
+			//   Conclusion: the 4-pair format IS the Pass handler.  Greed/Need must use
+			//   a different format — most likely 2-pair like ClickItem, with actionCode>0.
+			//
+			//   Greed hypothesis:  SendAction(2, [3,1], [4,slotIndex])  — actionCode=1
+			//   If actionCode=1 also passes, next to try is actionCode=3 or actionCode=4.
 			if (ngWindow != null)
 			{
 				for (int i = 0; i < NeedGreedMaxSlots; i++)
@@ -159,22 +163,22 @@ namespace Kombatant.Logic
 					if (_triedSlots.Contains(i)) continue;
 					_triedSlots.Add(i);
 
-					ngWindow.SendAction(2, 3, 0, 4, (ulong)i);  // ClickItem(i)
-
 					switch (BotBase.Instance.LootMode)
 					{
 						case LootMode.NeedAndGreed:
 						case LootMode.GreedAll:
-							// eventId=1 is the next untested candidate after 2=Pass.
-							ngWindow.SendAction(4, 3, 1, 4, 0, 4, 0, 3, 1);
-							LogHelper.Instance.Log($"[Loot] Sent Greed (eventId=1) via NeedGreed window for slot {i}.");
+							// 2-pair format, actionCode=1 — hypothesis: Greed (immediate, no dialog).
+							// ClickItem uses actionCode=0; all 4-pair variants produced Pass.
+							ngWindow.SendAction(2, 3, 1, 4, (ulong)i);
+							LogHelper.Instance.Log($"[Loot] Sent Greed (2-pair actionCode=1) via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 						case LootMode.PassAll:
-							// eventId=2 confirmed Pass.
-							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);
-							LogHelper.Instance.Log($"[Loot] Sent Pass (eventId=2) via NeedGreed window for slot {i}.");
+							// 4-pair format, eventId=2 — confirmed Pass.
+							ngWindow.SendAction(2, 3, 0, 4, (ulong)i);           // ClickItem first
+							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);     // Pass
+							LogHelper.Instance.Log($"[Loot] Sent Pass (4-pair eventId=2) via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
