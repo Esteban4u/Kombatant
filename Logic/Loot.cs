@@ -145,27 +145,21 @@ namespace Kombatant.Logic
 				}
 			}
 
-			// Pass 2: items visible in the NeedGreed UI window but absent from the memory array.
-			// Items 2+ in group loot are stored at dynamic per-item pointers, not in the flat
-			// array at LootsAddr+0x10.
+			// Pass 2: call LootFunc directly for slots 1+ while the NeedGreed window is open.
 			//
-			// SendAction encoding — determined empirically over multiple in-game tests:
+			// History: an earlier "blind roll" attempt called LootFunc for all indices before
+			// the NeedGreed window was ever opened (pre-notification fix) and returned true
+			// for everything but never visibly rolled.  All subsequent SendAction approaches on
+			// the NeedGreed window either Passed (4-pair variants) or had no effect (2-pair
+			// actionCodes 1 and 3 — the game played clicking sounds but nothing was rolled).
 			//
-			//   Known working:
-			//     ClickItem (select):  SendAction(2, [3,0], [4,slot])     — actionCode=0
-			//     Pass (confirmed):    ClickItem + SendAction(4-pair)     — triggers SelectYesno
-			//     ALL 4-pair variants (any Pair1, Pair2, Pair4 value)     → always Pass
+			// Key difference now: the notification fix ensures the NeedGreed window is open
+			// before we reach this code, so the game's loot state machine should have all
+			// items indexed and LootFunc may now work for slots 1+.
 			//
-			//   Tested, no effect (silent reject — consistent with Need on greed-only items):
-			//     SendAction(2, [3,1], [4,slot])                          — actionCode=1
-			//
-			//   Current hypothesis — Greed:
-			//     SendAction(2, [3,3], [4,slot])                          — actionCode=3
-			//
-			//   For NeedAndGreed mode both are sent in the same tick:
-			//     actionCode=1 first (Need) — accepted if item is need-eligible, else rejected
-			//     actionCode=3 second (Greed) — accepted for greed-only items; ignored if
-			//     item was already Needed (game ignores duplicate/downgrade rolls).
+			// For NeedAndGreed: try Need first (accepted for need-eligible items, rejected for
+			// greed-only) then Greed fallback, then Pass as last resort.
+			// LootFunc return value: true = game processed the call, false = no item at index.
 			if (ngWindow != null)
 			{
 				for (int i = 0; i < NeedGreedMaxSlots; i++)
@@ -173,32 +167,32 @@ namespace Kombatant.Logic
 					if (_triedSlots.Contains(i)) continue;
 					_triedSlots.Add(i);
 
+					bool result = false;
+					string rolledAs = "Pass";
+
 					switch (BotBase.Instance.LootMode)
 					{
 						case LootMode.NeedAndGreed:
-							// Send Need then Greed in the same tick.
-							// Need is accepted for need-eligible items; Greed handles the rest.
-							ngWindow.SendAction(2, 3, 1, 4, (ulong)i);  // Need  (actionCode=1)
-							ngWindow.SendAction(2, 3, 3, 4, (ulong)i);  // Greed (actionCode=3)
-							LogHelper.Instance.Log($"[Loot] Sent Need+Greed (actionCode=1,3) via NeedGreed window for slot {i}.");
-							if (BotBase.Instance.ShowLootNotification)
-								OverlayHelper.Instance.AddToast($"Rolled [Need/Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+							if (LootManager.RollByIndex(RollOption.Need, i))  { result = true; rolledAs = "Need"; }
+							else if (LootManager.RollByIndex(RollOption.Greed, i)) { result = true; rolledAs = "Greed"; }
+							else if (LootManager.RollByIndex(RollOption.Pass, i)) { result = true; rolledAs = "Pass"; }
 							break;
 						case LootMode.GreedAll:
-							ngWindow.SendAction(2, 3, 3, 4, (ulong)i);  // Greed (actionCode=3)
-							LogHelper.Instance.Log($"[Loot] Sent Greed (actionCode=3) via NeedGreed window for slot {i}.");
-							if (BotBase.Instance.ShowLootNotification)
-								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+							if (LootManager.RollByIndex(RollOption.Greed, i)) { result = true; rolledAs = "Greed"; }
+							else if (LootManager.RollByIndex(RollOption.Pass, i)) { result = true; rolledAs = "Pass"; }
 							break;
 						case LootMode.PassAll:
-							// 4-pair format confirmed Pass (triggers SelectYesno, auto-confirmed by Convenience).
-							ngWindow.SendAction(2, 3, 0, 4, (ulong)i);        // ClickItem first
-							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);  // Pass
-							LogHelper.Instance.Log($"[Loot] Sent Pass via NeedGreed window for slot {i}.");
-							if (BotBase.Instance.ShowLootNotification)
-								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+							if (LootManager.RollByIndex(RollOption.Pass, i)) { result = true; rolledAs = "Pass"; }
 							break;
 					}
+
+					LogHelper.Instance.Log(result
+						? $"[Loot] LootFunc rolled {rolledAs} for slot {i}."
+						: $"[Loot] LootFunc returned false for slot {i} (no item or already rolled).");
+
+					if (result && BotBase.Instance.ShowLootNotification)
+						OverlayHelper.Instance.AddToast($"Rolled [{rolledAs}] slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+
 					return Task.FromResult(true);
 				}
 			}

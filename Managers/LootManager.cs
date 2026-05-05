@@ -83,5 +83,26 @@ namespace Kombatant.Managers
 		public static List<LootItem> AvailableLoots => RawLootItems.Where(i => i.Valid).ToList();
 		public static LootItem[] RawLootItems => Core.Memory.ReadArray<LootItem>(Offsets.Instance.LootsAddr + 0x10, 16);
 		public static bool HasLoot => AvailableLoots.Any();
+
+		// Calls LootFunc by index without requiring the item to be in the flat memory array.
+		// Formerly used as a "blind roll" before the NeedGreed window was reliably opened;
+		// now retried with the window confirmed open, where the game's loot state machine
+		// should have all items indexed so LootFunc can reach them.
+		// Returns the raw bool from the game function (true = processed, false = no item).
+		public static bool RollByIndex(RollOption option, int index)
+		{
+			using (Core.Memory.TemporaryCacheState(false))
+			{
+				lock (Core.Memory.Executor.AssemblyLock)
+				{
+					return Core.Memory.CallInjected64<bool>(Offsets.Instance.LootFunc, new object[]
+					{
+						Offsets.Instance.LootsAddr,
+						(ulong)option,
+						index
+					});
+				}
+			}
+		}
 	}
 }
