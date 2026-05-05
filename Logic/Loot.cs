@@ -149,20 +149,23 @@ namespace Kombatant.Logic
 			// Items 2+ in group loot are stored at dynamic per-item pointers, not in the flat
 			// array at LootsAddr+0x10.
 			//
-			// SendAction encoding — determined empirically over multiple tests:
+			// SendAction encoding — determined empirically over multiple in-game tests:
 			//
-			//   ClickItem (select):
-			//     SendAction(2, [3,0], [4,slotIndex])   — 2-pair format, actionCode=0
+			//   Known working:
+			//     ClickItem (select):  SendAction(2, [3,0], [4,slot])     — actionCode=0
+			//     Pass (confirmed):    ClickItem + SendAction(4-pair)     — triggers SelectYesno
+			//     ALL 4-pair variants (any Pair1, Pair2, Pair4 value)     → always Pass
 			//
-			//   Pass (confirmed working, triggers SelectYesno confirmation):
-			//     SendAction(4, [3,2], [4,0], [4,0], [3,1])  — 4-pair format
+			//   Tested, no effect (silent reject — consistent with Need on greed-only items):
+			//     SendAction(2, [3,1], [4,slot])                          — actionCode=1
 			//
-			//   ALL 4-pair variants tested (eventId=1,2; Pair2=0,1; Pair4=1,2) → always Pass.
-			//   Conclusion: the 4-pair format IS the Pass handler.  Greed/Need must use
-			//   a different format — most likely 2-pair like ClickItem, with actionCode>0.
+			//   Current hypothesis — Greed:
+			//     SendAction(2, [3,3], [4,slot])                          — actionCode=3
 			//
-			//   Greed hypothesis:  SendAction(2, [3,1], [4,slotIndex])  — actionCode=1
-			//   If actionCode=1 also passes, next to try is actionCode=3 or actionCode=4.
+			//   For NeedAndGreed mode both are sent in the same tick:
+			//     actionCode=1 first (Need) — accepted if item is need-eligible, else rejected
+			//     actionCode=3 second (Greed) — accepted for greed-only items; ignored if
+			//     item was already Needed (game ignores duplicate/downgrade rolls).
 			if (ngWindow != null)
 			{
 				for (int i = 0; i < NeedGreedMaxSlots; i++)
@@ -173,19 +176,25 @@ namespace Kombatant.Logic
 					switch (BotBase.Instance.LootMode)
 					{
 						case LootMode.NeedAndGreed:
+							// Send Need then Greed in the same tick.
+							// Need is accepted for need-eligible items; Greed handles the rest.
+							ngWindow.SendAction(2, 3, 1, 4, (ulong)i);  // Need  (actionCode=1)
+							ngWindow.SendAction(2, 3, 3, 4, (ulong)i);  // Greed (actionCode=3)
+							LogHelper.Instance.Log($"[Loot] Sent Need+Greed (actionCode=1,3) via NeedGreed window for slot {i}.");
+							if (BotBase.Instance.ShowLootNotification)
+								OverlayHelper.Instance.AddToast($"Rolled [Need/Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+							break;
 						case LootMode.GreedAll:
-							// 2-pair format, actionCode=1 — hypothesis: Greed (immediate, no dialog).
-							// ClickItem uses actionCode=0; all 4-pair variants produced Pass.
-							ngWindow.SendAction(2, 3, 1, 4, (ulong)i);
-							LogHelper.Instance.Log($"[Loot] Sent Greed (2-pair actionCode=1) via NeedGreed window for slot {i}.");
+							ngWindow.SendAction(2, 3, 3, 4, (ulong)i);  // Greed (actionCode=3)
+							LogHelper.Instance.Log($"[Loot] Sent Greed (actionCode=3) via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 						case LootMode.PassAll:
-							// 4-pair format, eventId=2 — confirmed Pass.
-							ngWindow.SendAction(2, 3, 0, 4, (ulong)i);           // ClickItem first
-							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);     // Pass
-							LogHelper.Instance.Log($"[Loot] Sent Pass (4-pair eventId=2) via NeedGreed window for slot {i}.");
+							// 4-pair format confirmed Pass (triggers SelectYesno, auto-confirmed by Convenience).
+							ngWindow.SendAction(2, 3, 0, 4, (ulong)i);        // ClickItem first
+							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);  // Pass
+							LogHelper.Instance.Log($"[Loot] Sent Pass via NeedGreed window for slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
