@@ -53,27 +53,18 @@ namespace Kombatant.Logic
 			if (BotBase.Instance.IsPaused)
 				return Task.FromResult(false);
 
-			// The NeedGreed window only appears after the player clicks the loot notification icon.
-			// Check for that icon and open the window if it is not already open.
-			var ngWindow = RaptureAtkUnitManager.GetWindowByName("NeedGreed");
-			if (ngWindow == null)
-			{
-				var notification = RaptureAtkUnitManager.GetWindowByName("_Notification");
-				if (notification != null)
-				{
-					// Same call LlamaLibrary GeneralFunctions.PassOnAllLoot() uses to open NeedGreed.
-					notification.SendAction(3, 3, 0, 3, 2, 6, 0x375B30E7);
-					LogHelper.Instance.Log("[Loot] Clicked loot notification to open NeedGreed window.");
-					return Task.FromResult(true);
-				}
-			}
-
+			var ngWindow      = RaptureAtkUnitManager.GetWindowByName("NeedGreed");
 			bool hasMemoryLoot = LootManager.HasLoot;
+			// _NotificationLoot is the specific loot-chest icon; _Notification is the generic
+			// notification bar we SendAction on to open it.  Check the specific one first so
+			// we never mistake a party-invite or other non-loot notification for pending loot.
+			bool hasLootNotif  = RaptureAtkUnitManager.GetWindowByName("_NotificationLoot") != null;
 
-			// Clear state only when both the memory array and the window indicate no loot.
-			// The game clears the memory array immediately after item 0 is rolled, while the
-			// window (with items 2+) may still be open.
-			if (!hasMemoryLoot && ngWindow == null)
+			// Reset state only when ALL three sources say there is no loot pending.
+			// Previously clearing on !hasMemoryLoot alone caused a reset/reprocess loop:
+			// the game clears the memory array the moment item 0 is rolled, while both the
+			// NeedGreed window (items 2+) and the notification icon may still be open.
+			if (!hasMemoryLoot && ngWindow == null && !hasLootNotif)
 			{
 				ResetState();
 				return Task.FromResult(false);
@@ -82,8 +73,24 @@ namespace Kombatant.Logic
 			if (BotBase.Instance.LootMode == LootMode.DontLoot)
 				return Task.FromResult(false);
 
+			// Rate-limit ALL loot actions — including the notification click — through the
+			// shared 500 ms timer.  Previously the notification click returned true before
+			// reaching this check, firing on every bot tick and starving the combat rotation.
 			if (!WaitHelper.Instance.IsDoneWaiting("LootTimer", TimeSpan.FromMilliseconds(500)))
 				return Task.FromResult(false);
+
+			// The NeedGreed window only appears after clicking the loot notification icon.
+			// Open it now if the icon is visible but the window is not yet open.
+			if (ngWindow == null && hasLootNotif)
+			{
+				var notification = RaptureAtkUnitManager.GetWindowByName("_Notification");
+				if (notification != null)
+				{
+					notification.SendAction(3, 3, 0, 3, 2, 6, 0x375B30E7);
+					LogHelper.Instance.Log("[Loot] Clicked loot notification to open NeedGreed window.");
+					return Task.FromResult(true);
+				}
+			}
 
 			// Pass 1: items visible in the memory array carry full RollState/ItemId data.
 			// Handles item 0 (and any others the game surfaces in the flat array) with
