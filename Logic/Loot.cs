@@ -80,8 +80,10 @@ namespace Kombatant.Logic
 				return Task.FromResult(false);
 
 			// The NeedGreed window only appears after clicking the loot notification icon.
-			// Open it now if the icon is visible but the window is not yet open.
-			if (ngWindow == null && hasLootNotif)
+			// Open it now if the icon is visible but the window is not yet open AND we still
+			// have untried slots (avoids a spurious re-click after all 16 slots are exhausted
+			// while the notification icon lingers).
+			if (ngWindow == null && hasLootNotif && _triedSlots.Count < NeedGreedMaxSlots)
 			{
 				var notification = RaptureAtkUnitManager.GetWindowByName("_Notification");
 				if (notification != null)
@@ -186,9 +188,12 @@ namespace Kombatant.Logic
 							break;
 					}
 
-					LogHelper.Instance.Log(result
-						? $"[Loot] LootFunc rolled {rolledAs} for slot {i}."
-						: $"[Loot] LootFunc returned false for slot {i} (no item or already rolled).");
+					// LootFunc returns true for every index (including empty slots) — "true" means
+				// the game accepted the call, not necessarily that a real item was there.
+				// Real items produce a visible roll; empty slots are silent no-ops.
+				LogHelper.Instance.Log(result
+						? $"[Loot] LootFunc accepted {rolledAs} for slot {i} (real item or silent no-op)."
+						: $"[Loot] LootFunc rejected slot {i}.");
 
 					if (result && BotBase.Instance.ShowLootNotification)
 						OverlayHelper.Instance.AddToast($"Rolled [{rolledAs}] slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
