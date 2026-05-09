@@ -192,9 +192,12 @@ namespace Kombatant.Logic
 					{
 						case LootMode.NeedAndGreed:
 						case LootMode.GreedAll:
-							// 2-pair: action 1, item index i — Greed hypothesis
-							ngWindow.SendAction(2, 3, 1, 4, (ulong)i);
-							LogHelper.Instance.Log($"[Loot] Sent Greed (2-pair action 1) for window slot {i}.");
+							// 2-pair: action 2, item index i — Greed hypothesis.
+							// Rationale: 4-pair action 2 = Pass (confirmed).  The game may
+							// distinguish Greed from Pass by pair count on the same action type,
+							// similar to how ClickItem (2-pair action 0) differs from a full roll.
+							ngWindow.SendAction(2, 3, 2, 4, (ulong)i);
+							LogHelper.Instance.Log($"[Loot] Sent Greed (2-pair action 2) for window slot {i}.");
 							if (BotBase.Instance.ShowLootNotification)
 								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
