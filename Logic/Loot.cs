@@ -166,50 +166,49 @@ namespace Kombatant.Logic
 				}
 			}
 
-			// Pass 2: call LootFunc for all remaining window slots in one batch.
-			// Processing all slots at once (rather than one per 500 ms tick) ensures every item
-			// is rolled before other party members resolve later slots in large alliance raids.
-			// LootFunc returns true for every index whether a real item exists or not; empty-slot
-			// calls are silent no-ops in the game.
+			// Pass 2: items visible in the NeedGreed UI window but absent from the memory array.
+			// Items 2+ are at dynamic per-item pointers and do not appear in the flat array at
+			// LootsAddr+0x10.  LootFunc (used in Pass 1) always returns true for any index and
+			// does NOT roll items 2+, so we drive the window directly via AtkAddonControl.SendAction.
+			//
+			// Confirmed SendAction encodings (empirically verified):
+			//   ClickItem(i)     : SendAction(2,  3, 0, 4, i)               — selects item i
+			//   Pass             : ClickItem(i) + SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1)
+			//                      (opens SelectYesno; auto-confirmed by Convenience.cs)
+			//   Greed (attempt)  : SendAction(2,  3, 1, 4, i)               — 2-pair, action 1
+			//     The 4-pair format with ANY Pair-1 value of (3,2) always executes Pass regardless
+			//     of other parameters.  The 2-pair format encodes the item index directly and
+			//     matches the ClickItem pattern (action 0 = select, action 1 = Greed hypothesis).
+			//
+			// One slot is processed per 500 ms WaitTimer tick.
 			if (ngWindow != null && SessionActive)
 			{
-				int processed = 0;
 				for (int i = 0; i < NeedGreedMaxSlots; i++)
 				{
 					if (_triedSlots.Contains(i)) continue;
 					_triedSlots.Add(i);
 
-					bool result = false;
-					string rolledAs = "Pass";
-
 					switch (BotBase.Instance.LootMode)
 					{
 						case LootMode.NeedAndGreed:
-							if (LootManager.RollByIndex(RollOption.Need, i))        { result = true; rolledAs = "Need"; }
-							else if (LootManager.RollByIndex(RollOption.Greed, i)) { result = true; rolledAs = "Greed"; }
-							else if (LootManager.RollByIndex(RollOption.Pass, i))  { result = true; rolledAs = "Pass"; }
-							break;
 						case LootMode.GreedAll:
-							if (LootManager.RollByIndex(RollOption.Greed, i))      { result = true; rolledAs = "Greed"; }
-							else if (LootManager.RollByIndex(RollOption.Pass, i))  { result = true; rolledAs = "Pass"; }
+							// 2-pair: action 1, item index i — Greed hypothesis
+							ngWindow.SendAction(2, 3, 1, 4, (ulong)i);
+							LogHelper.Instance.Log($"[Loot] Sent Greed (2-pair action 1) for window slot {i}.");
+							if (BotBase.Instance.ShowLootNotification)
+								OverlayHelper.Instance.AddToast($"Rolled [Greed] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 						case LootMode.PassAll:
-							if (LootManager.RollByIndex(RollOption.Pass, i))       { result = true; rolledAs = "Pass"; }
+							// ClickItem + 4-pair Pass — confirmed working
+							ngWindow.SendAction(2, 3, 0, 4, (ulong)i);
+							ngWindow.SendAction(4, 3, 2, 4, 0, 4, 0, 3, 1);
+							LogHelper.Instance.Log($"[Loot] Sent Pass (ClickItem + 4-pair) for window slot {i}.");
+							if (BotBase.Instance.ShowLootNotification)
+								OverlayHelper.Instance.AddToast($"Rolled [Pass] window slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 							break;
 					}
-
-					LogHelper.Instance.Log(result
-						? $"[Loot] LootFunc accepted {rolledAs} for slot {i}."
-						: $"[Loot] LootFunc rejected slot {i}.");
-
-					if (result && BotBase.Instance.ShowLootNotification)
-						OverlayHelper.Instance.AddToast($"Rolled [{rolledAs}] slot {i}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
-
-					processed++;
-				}
-
-				if (processed > 0)
 					return Task.FromResult(true);
+				}
 			}
 
 			return Task.FromResult(false);
