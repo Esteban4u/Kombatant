@@ -17,7 +17,7 @@ using Kombatant.Settings;
 namespace Kombatant.Managers
 {
 
-	[StructLayout(LayoutKind.Explicit, Size = 0x40)]
+	[StructLayout(LayoutKind.Explicit, Size = 0x44)]
 	public struct LootItem
 	{
 		[FieldOffset(0x0)] public uint ObjectId;
@@ -84,5 +84,22 @@ namespace Kombatant.Managers
 		public static LootItem[] RawLootItems => Core.Memory.ReadArray<LootItem>(Offsets.Instance.LootsAddr + 0x10, 16);
 		public static bool HasLoot => AvailableLoots.Any();
 
+		public static bool RollDirect(RollOption option, int index)
+		{
+			bool result;
+			using (Core.Memory.TemporaryCacheState(false))
+			{
+				lock (Core.Memory.Executor.AssemblyLock)
+				{
+					result = Core.Memory.CallInjected64<bool>(Offsets.Instance.LootRollFunc, new object[]
+					{
+						Offsets.Instance.LootsAddr,
+						(ulong)option,
+						(uint)index
+					});
+				}
+			}
+			return result;
+		}
 	}
 }
