@@ -62,16 +62,8 @@ namespace Kombatant.Logic
 				if (!item.Valid || item.Rolled || _attemptedItems.Contains(Key(item)) || item.LeftRollTime <= 0)
 					continue;
 
-				var itemData = item.Item;
-				if (itemData != null && itemData.Unique && ff14bot.NeoProfiles.ConditionParser.HasItem(item.ItemId))
-				{
-					_attemptedItems.Add(Key(item));
-					LootManager.RollDirect(RollOption.Pass, i);
-					LogHelper.Instance.Log($"[Loot] Passed slot {i} (unique item already owned).");
-					return Task.FromResult(true);
-				}
-
 				_attemptedItems.Add(Key(item));
+				var itemData = item.Item;
 				var itemName = itemData?.CurrentLocaleName ?? $"ItemId:{item.ItemId}";
 				RollOption action;
 
