@@ -65,39 +65,53 @@ namespace Kombatant.Logic
 				_attemptedItems.Add(Key(item));
 				var itemData = item.Item;
 				var itemName = itemData?.CurrentLocaleName ?? $"ItemId:{item.ItemId}";
-				RollOption action;
 
+				RollOption[] actions;
 				switch (BotBase.Instance.LootMode)
 				{
 					case LootMode.NeedAndGreed:
-						if (item.RollState == RollState.UpToNeed)         action = RollOption.Need;
-						else if (item.RollState == RollState.UpToGreed)   action = RollOption.Greed;
-						else                                               action = RollOption.Pass;
+						if (item.RollState == RollState.UpToNeed)
+							actions = new[] { RollOption.Need, RollOption.Greed, RollOption.Pass };
+						else if (item.RollState == RollState.UpToGreed)
+							actions = new[] { RollOption.Greed, RollOption.Pass };
+						else
+							actions = new[] { RollOption.Pass };
 						break;
 
 					case LootMode.GreedAll:
 						if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed)
-							action = RollOption.Greed;
+							actions = new[] { RollOption.Greed, RollOption.Pass };
 						else
-							action = RollOption.Pass;
+							actions = new[] { RollOption.Pass };
 						break;
 
 					case LootMode.PassAll:
 					default:
-						action = RollOption.Pass;
+						actions = new[] { RollOption.Pass };
 						break;
 				}
 
-				bool result = LootManager.RollDirect(action, i);
-				if (result)
+				RollOption succeededAction = RollOption.Pass;
+				bool rolled = false;
+				foreach (var action in actions)
 				{
-					LogHelper.Instance.Log($"[Loot] Rolled {action} for {itemName} (slot {i}).");
+					if (LootManager.RollDirect(action, i))
+					{
+						succeededAction = action;
+						rolled = true;
+						break;
+					}
+				}
+
+				if (rolled)
+				{
+					LogHelper.Instance.Log($"[Loot] Rolled {succeededAction} for {itemName} (slot {i}).");
 					if (BotBase.Instance.ShowLootNotification)
-						OverlayHelper.Instance.AddToast($"Rolled [{action}] for {itemName}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+						OverlayHelper.Instance.AddToast($"Rolled [{succeededAction}] for {itemName}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 				}
 				else
 				{
-					LogHelper.Instance.Log($"[Loot] RollDirect returned false for {itemName} (slot {i}, action {action}).");
+					LogHelper.Instance.Log($"[Loot] All roll options failed for {itemName} (slot {i}).");
 				}
 
 				return Task.FromResult(true);
