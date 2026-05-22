@@ -25,13 +25,22 @@ namespace Kombatant.Logic
 
 		#endregion
 
-		// Tracks (ObjectId, ItemId) pairs already acted on so we don't re-roll after the game
-		// briefly keeps a slot valid while the roll result propagates.
+		// Items successfully rolled — never retried.
 		private readonly HashSet<(uint, uint)> _attemptedItems = new HashSet<(uint, uint)>();
+
+		// Number of failed roll attempts per item. Each tick advances one step through
+		// the Need→Greed→Pass fallback chain. Item is abandoned once all options are tried.
+		private readonly Dictionary<(uint, uint), int> _failCount = new Dictionary<(uint, uint), int>();
 
 		private static (uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId);
 
 		private const int LootSlots = 16;
+
+		private void ResetState()
+		{
+			_attemptedItems.Clear();
+			_failCount.Clear();
+		}
 
 		/// <summary>
 		/// Main task executor for the Loot logic.
@@ -44,7 +53,7 @@ namespace Kombatant.Logic
 
 			if (!LootManager.HasLoot)
 			{
-				_attemptedItems.Clear();
+				ResetState();
 				return Task.FromResult(false);
 			}
 
@@ -59,59 +68,67 @@ namespace Kombatant.Logic
 			for (int i = 0; i < LootSlots; i++)
 			{
 				var item = rawItems[i];
-				if (!item.Valid || item.Rolled || _attemptedItems.Contains(Key(item)) || item.LeftRollTime <= 0)
+				if (!item.Valid || item.Rolled || item.LeftRollTime <= 0)
 					continue;
 
-				_attemptedItems.Add(Key(item));
+				var key = Key(item);
+				if (_attemptedItems.Contains(key))
+					continue;
+
 				var itemData = item.Item;
 				var itemName = itemData?.CurrentLocaleName ?? $"ItemId:{item.ItemId}";
 
-				RollOption[] actions;
+				RollOption[] options;
 				switch (BotBase.Instance.LootMode)
 				{
 					case LootMode.NeedAndGreed:
 						if (item.RollState == RollState.UpToNeed)
-							actions = new[] { RollOption.Need, RollOption.Greed, RollOption.Pass };
+							options = new[] { RollOption.Need, RollOption.Greed, RollOption.Pass };
 						else if (item.RollState == RollState.UpToGreed)
-							actions = new[] { RollOption.Greed, RollOption.Pass };
+							options = new[] { RollOption.Greed, RollOption.Pass };
 						else
-							actions = new[] { RollOption.Pass };
+							options = new[] { RollOption.Pass };
 						break;
 
 					case LootMode.GreedAll:
 						if (item.RollState == RollState.UpToNeed || item.RollState == RollState.UpToGreed)
-							actions = new[] { RollOption.Greed, RollOption.Pass };
+							options = new[] { RollOption.Greed, RollOption.Pass };
 						else
-							actions = new[] { RollOption.Pass };
+							options = new[] { RollOption.Pass };
 						break;
 
 					case LootMode.PassAll:
 					default:
-						actions = new[] { RollOption.Pass };
+						options = new[] { RollOption.Pass };
 						break;
 				}
 
-				RollOption succeededAction = RollOption.Pass;
-				bool rolled = false;
-				foreach (var action in actions)
+				int fails = _failCount.TryGetValue(key, out int f) ? f : 0;
+
+				if (fails >= options.Length)
 				{
-					if (LootManager.RollDirect(action, i))
-					{
-						succeededAction = action;
-						rolled = true;
-						break;
-					}
+					// All options exhausted across previous ticks — give up on this item.
+					_attemptedItems.Add(key);
+					_failCount.Remove(key);
+					LogHelper.Instance.Log($"[Loot] All roll options exhausted for {itemName} (slot {i}), skipping.");
+					return Task.FromResult(true);
 				}
 
-				if (rolled)
+				var action = options[fails];
+				bool result = LootManager.RollDirect(action, i);
+
+				if (result)
 				{
-					LogHelper.Instance.Log($"[Loot] Rolled {succeededAction} for {itemName} (slot {i}).");
+					_attemptedItems.Add(key);
+					_failCount.Remove(key);
+					LogHelper.Instance.Log($"[Loot] Rolled {action} for {itemName} (slot {i}).");
 					if (BotBase.Instance.ShowLootNotification)
-						OverlayHelper.Instance.AddToast($"Rolled [{succeededAction}] for {itemName}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
+						OverlayHelper.Instance.AddToast($"Rolled [{action}] for {itemName}.", Colors.Gold, Colors.Black, TimeSpan.FromSeconds(2.5));
 				}
 				else
 				{
-					LogHelper.Instance.Log($"[Loot] All roll options failed for {itemName} (slot {i}).");
+					_failCount[key] = fails + 1;
+					LogHelper.Instance.Log($"[Loot] {action} rejected for {itemName} (slot {i}), will retry next tick.");
 				}
 
 				return Task.FromResult(true);
