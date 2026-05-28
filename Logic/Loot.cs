@@ -28,13 +28,15 @@ namespace Kombatant.Logic
 		// Items successfully rolled — never retried.
 		private readonly HashSet<(uint, uint)> _attemptedItems = new HashSet<(uint, uint)>();
 
-		// Number of failed roll attempts per item. Each tick advances one step through
-		// the Need→Greed→Pass fallback chain. Item is abandoned once all options are tried.
+		// Number of failed roll attempts per item. Each option is tried AttemptsPerOption
+		// times before advancing to the next fallback. Item is abandoned once all options
+		// and all retries are exhausted.
 		private readonly Dictionary<(uint, uint), int> _failCount = new Dictionary<(uint, uint), int>();
 
 		private static (uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId);
 
 		private const int LootSlots = 16;
+		private const int AttemptsPerOption = 3;
 
 		private void ResetState()
 		{
@@ -104,17 +106,18 @@ namespace Kombatant.Logic
 				}
 
 				int fails = _failCount.TryGetValue(key, out int f) ? f : 0;
+				int maxFails = options.Length * AttemptsPerOption;
 
-				if (fails >= options.Length)
+				if (fails >= maxFails)
 				{
-					// All options exhausted across previous ticks — give up on this item.
+					// All options exhausted (each tried AttemptsPerOption times) — give up.
 					_attemptedItems.Add(key);
 					_failCount.Remove(key);
 					LogHelper.Instance.Log($"[Loot] All roll options exhausted for {itemName} (slot {i}), skipping.");
 					return Task.FromResult(true);
 				}
 
-				var action = options[fails];
+				var action = options[Math.Min(fails / AttemptsPerOption, options.Length - 1)];
 				bool result = LootManager.RollDirect(action, i);
 
 				if (result)
