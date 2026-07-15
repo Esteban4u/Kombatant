@@ -26,24 +26,28 @@ namespace Kombatant.Logic
 		#endregion
 
 		// Items successfully rolled — never retried.
-		private readonly HashSet<(uint, uint)> _attemptedItems = new HashSet<(uint, uint)>();
+		private readonly HashSet<(uint, uint, uint)> _attemptedItems = new HashSet<(uint, uint, uint)>();
 
 		// Number of failed roll attempts per item. Each option is tried AttemptsPerOption
 		// times before advancing to the next fallback. Item is abandoned once all options
 		// and all retries are exhausted.
-		private readonly Dictionary<(uint, uint), int> _failCount = new Dictionary<(uint, uint), int>();
+		private readonly Dictionary<(uint, uint, uint), int> _failCount = new Dictionary<(uint, uint, uint), int>();
 
 		// After RollDirect reports success, watch the item for a few more ticks to confirm
 		// RolledState actually advances server-side. RollDirect has been observed to return
 		// true for rolls the server silently drops (e.g. Greed/Need on an already-owned
 		// unique item, or a contested relic weapon) — if confirmation never lands, the item
 		// is reopened so the normal fallback chain advances past that option.
-		private readonly Dictionary<(uint, uint), (RollOption Submitted, int ChecksLeft, RollState LastRollState, RollOption LastRolledState)> _verifyQueue = new Dictionary<(uint, uint), (RollOption, int, RollState, RollOption)>();
+		private readonly Dictionary<(uint, uint, uint), (RollOption Submitted, int ChecksLeft, RollState LastRollState, RollOption LastRolledState)> _verifyQueue = new Dictionary<(uint, uint, uint), (RollOption, int, RollState, RollOption)>();
 		// ~5s of ticks at observed tick rate — comfortably above the sub-1s confirmation time
 		// seen for normal rolls, to avoid mistaking a slow-but-legitimate roll for a silent failure.
 		private const int VerifyChecks = 150;
 
-		private static (uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId);
+		// Includes Index alongside (ObjectId, ItemId): two identical items from the same
+		// boss corpse (e.g. two copies of the same Triple Triad card) share ObjectId and
+		// ItemId, and would otherwise collide — the second one silently skipped forever
+		// once the first is marked attempted.
+		private static (uint, uint, uint) Key(LootItem item) => (item.ObjectId, item.ItemId, item.Index);
 
 		private const int LootSlots = 16;
 		private const int AttemptsPerOption = 3;
@@ -64,10 +68,10 @@ namespace Kombatant.Logic
 
 			var rawItems = LootManager.RawLootItems;
 
-			foreach (var vKey in new List<(uint, uint)>(_verifyQueue.Keys))
+			foreach (var vKey in new List<(uint, uint, uint)>(_verifyQueue.Keys))
 			{
 				var (submitted, checksLeft, lastRollState, lastRolledState) = _verifyQueue[vKey];
-				var match = Array.Find(rawItems, it => it.Valid && (it.ObjectId, it.ItemId) == vKey);
+				var match = Array.Find(rawItems, it => it.Valid && (it.ObjectId, it.ItemId, it.Index) == vKey);
 
 				if (match.ObjectId == 0 && match.ItemId == 0)
 				{
@@ -148,7 +152,7 @@ namespace Kombatant.Logic
 				if (!_failCount.ContainsKey(key))
 				{
 					bool alreadyOwned = itemData != null && itemData.Unique && ff14bot.NeoProfiles.ConditionParser.HasItem(item.ItemId);
-					LogHelper.Instance.Log($"[Loot] Slot {i} {itemName} (Item {item.ItemId}): RollState={item.RollState}, Unique={itemData?.Unique}, AlreadyOwned={alreadyOwned}, LeftRollTime={item.LeftRollTime:F2}");
+					LogHelper.Instance.Log($"[Loot] Slot {i} {itemName} (Item {item.ItemId}, ObjectId={item.ObjectId}, Index={item.Index}): RollState={item.RollState}, Unique={itemData?.Unique}, AlreadyOwned={alreadyOwned}, LeftRollTime={item.LeftRollTime:F2}");
 				}
 
 				RollOption[] options;
